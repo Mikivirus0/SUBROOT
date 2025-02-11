@@ -63,7 +63,7 @@ func main() {
 	}
 
 	results := make(chan string, *workers)
-	progress := make(chan int, *workers) // Channel to track progress
+	progress := make(chan int, *workers)
 	var wg sync.WaitGroup
 
 	go displayProgress(progress, total)
@@ -73,7 +73,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for sub := range subs {
-				progress <- 1 // Increment progress
+				progress <- 1
 				subdomain := fmt.Sprintf("%s.%s", sub, *domain)
 				if isAliveDNS(subdomain, *resolver) || isAliveHTTP(subdomain) || isAlivePing(subdomain) {
 					results <- subdomain
@@ -171,14 +171,26 @@ func isAliveDNS(subdomain, resolver string) bool {
 }
 
 func isAliveHTTP(subdomain string) bool {
-	url := fmt.Sprintf("http://%s", subdomain)
 	client := &http.Client{
 		Timeout: 3 * time.Second,
 	}
+	url := fmt.Sprintf("http://%s", subdomain)
 	resp, err := client.Get(url)
-	if err == nil && resp.StatusCode < 500 {
-		return true
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode < 500 {
+			return true
+		}
 	}
+	url = fmt.Sprintf("https://%s", subdomain)
+	resp, err = client.Get(url)
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode < 500 {
+			return true
+		}
+	}
+
 	return false
 }
 
